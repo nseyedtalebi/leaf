@@ -1,4 +1,4 @@
-# LEAF: A Benchmark for Federated Settings
+# LEAF: A Benchmark for Federated Settings,eventually with differential privacy analysis thanks to Tensorflow Privacy.
 
 ## Resources
 
