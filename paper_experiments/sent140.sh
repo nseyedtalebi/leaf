@@ -13,17 +13,17 @@ function get_k_data() {
 
 	pushd data/sent140/
 		rm -rf meta/ data/
-		./preprocess.sh --sf 0.5 -k ${keep_clients} -s niid -t sample --spltseed ${split_seed}
+		./preprocess.sh --sf 0.1 -k ${keep_clients} -s niid -t sample --spltseed ${split_seed}
 	popd
 }
 
 function move_data() {
 	path="$1"
 	suffix="$2"
-	
+
 	pushd models/metrics
-		mv sys_metrics.csv "${path}/sys_metrics_${suffix}.csv"
-		mv stat_metrics.csv "${path}/stat_metrics_${suffix}.csv"
+		mv metrics_sys.csv "${path}/metrics_sys_${suffix}.csv"
+		mv metrics_stat.csv "${path}/metrics_stat_${suffix}.csv"
 	popd
 
 	cp -r data/sent140/meta "${path}"
