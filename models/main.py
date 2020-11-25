@@ -6,6 +6,7 @@ import os
 import sys
 import random
 import tensorflow as tf
+import tensorflow_privacy as tp
 
 import metrics.writer as metrics_writer
 
@@ -13,7 +14,6 @@ from baseline_constants import MAIN_PARAMS, MODEL_PARAMS
 from client import Client
 from server import Server
 from model import ServerModel
-
 from utils.args import parse_args
 from utils.model_utils import read_data
 
@@ -24,7 +24,7 @@ SYS_METRICS_PATH = "metrics/sys_metrics.csv"
 def main():
 
     args = parse_args()
-
+    # uses_dp = False
     # Set the random seed if provided (affects client sampling, and batching)
     random.seed(1 + args.seed)
     np.random.seed(12 + args.seed)
@@ -58,11 +58,12 @@ def main():
         model_params_list[0] = args.lr
         model_params = tuple(model_params_list)
 
+    # add extra params for dp
+    model_params = model_params + (args.l2_norm_clip, args.noise_multiplier)
+
     # Create client model, and share params with server model
     tf.compat.v1.reset_default_graph()
-    client_model = ClientModel(args.seed, *model_params)  # TODO:DP optimizer here?
-    # NOTE: It looks like subclassing Model is not the way to go.I should add the
-    # stuff neded for DP to main and add separate stuff to write out the metrics
+    client_model = ClientModel(args.seed, *model_params)
 
     # Create server
     server = Server(client_model)
