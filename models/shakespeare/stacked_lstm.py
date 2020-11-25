@@ -16,24 +16,24 @@ class ClientModel(Model):
         super(ClientModel, self).__init__(seed, lr)
 
     def create_model(self):
-        features = tf.placeholder(tf.int32, [None, self.seq_len])
-        embedding = tf.get_variable("embedding", [self.num_classes, 8])
-        x = tf.nn.embedding_lookup(embedding, features)
-        labels = tf.placeholder(tf.int32, [None, self.num_classes])
+        features = tf.compat.v1.placeholder(tf.int32, [None, self.seq_len])
+        embedding = tf.compat.v1.get_variable("embedding", [self.num_classes, 8])
+        x = tf.nn.embedding_lookup(params=embedding, ids=features)
+        labels = tf.compat.v1.placeholder(tf.int32, [None, self.num_classes])
         
         stacked_lstm = rnn.MultiRNNCell(
             [rnn.BasicLSTMCell(self.n_hidden) for _ in range(2)])
-        outputs, _ = tf.nn.dynamic_rnn(stacked_lstm, x, dtype=tf.float32)
-        pred = tf.layers.dense(inputs=outputs[:,-1,:], units=self.num_classes)
+        outputs, _ = tf.compat.v1.nn.dynamic_rnn(stacked_lstm, x, dtype=tf.float32)
+        pred = tf.compat.v1.layers.dense(inputs=outputs[:,-1,:], units=self.num_classes)
         
         loss = tf.reduce_mean(
-            tf.nn.softmax_cross_entropy_with_logits_v2(logits=pred, labels=labels))
+            input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=labels))
         train_op = self.optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step())
+            global_step=tf.compat.v1.train.get_global_step())
 
-        correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(labels, 1))
-        eval_metric_ops = tf.count_nonzero(correct_pred)
+        correct_pred = tf.equal(tf.argmax(input=pred, axis=1), tf.argmax(input=labels, axis=1))
+        eval_metric_ops = tf.math.count_nonzero(correct_pred)
 
         return features, labels, train_op, eval_metric_ops, loss
 

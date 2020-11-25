@@ -27,48 +27,48 @@ class ClientModel(Model):
         # initialize vocabulary
         self.vocab, self.vocab_size, self.unk_symbol, self.pad_symbol = self.load_vocab()
 
-        self.initializer = tf.random_uniform_initializer(-init_scale, init_scale)
+        self.initializer = tf.compat.v1.random_uniform_initializer(-init_scale, init_scale)
 
         super(ClientModel, self).__init__(seed, lr)
 
     def create_model(self):
 
-        with tf.variable_scope('language_model', reuse=None, initializer=self.initializer):
-            features = tf.placeholder(tf.int32, [None, self.seq_len], name='features')
-            labels = tf.placeholder(tf.int32, [None, self.seq_len], name='labels')
-            self.sequence_length_ph = tf.placeholder(tf.int32, [None], name='seq_len_ph')
-            self.sequence_mask_ph = tf.placeholder(tf.float32, [None, self.seq_len], name='seq_mask_ph')
+        with tf.compat.v1.variable_scope('language_model', reuse=None, initializer=self.initializer):
+            features = tf.compat.v1.placeholder(tf.int32, [None, self.seq_len], name='features')
+            labels = tf.compat.v1.placeholder(tf.int32, [None, self.seq_len], name='labels')
+            self.sequence_length_ph = tf.compat.v1.placeholder(tf.int32, [None], name='seq_len_ph')
+            self.sequence_mask_ph = tf.compat.v1.placeholder(tf.float32, [None, self.seq_len], name='seq_mask_ph')
 
-            self.batch_size = tf.shape(features)[0]
+            self.batch_size = tf.shape(input=features)[0]
 
             # word embedding
-            embedding = tf.get_variable(
+            embedding = tf.compat.v1.get_variable(
                 'embedding', [self.vocab_size, self.n_hidden], dtype=tf.float32)
-            inputs = tf.nn.embedding_lookup(embedding, features)
+            inputs = tf.nn.embedding_lookup(params=embedding, ids=features)
 
             # LSTM
             output, state = self._build_rnn_graph(inputs) # TODO: check!
 
             # softmax
-            with tf.variable_scope('softmax'):
-                softmax_w = tf.get_variable(
+            with tf.compat.v1.variable_scope('softmax'):
+                softmax_w = tf.compat.v1.get_variable(
                     'softmax_w', [self.n_hidden, self.vocab_size], dtype=tf.float32)
-                softmax_b = tf.get_variable('softmax_b', [self.vocab_size], dtype=tf.float32)
+                softmax_b = tf.compat.v1.get_variable('softmax_b', [self.vocab_size], dtype=tf.float32)
             
-            logits = tf.nn.xw_plus_b(output, softmax_w, softmax_b)
+            logits = tf.compat.v1.nn.xw_plus_b(output, softmax_w, softmax_b)
 
             # correct predictions
             labels_reshaped = tf.reshape(labels, [-1])
-            pred = tf.cast(tf.argmax(logits, 1), tf.int32)
+            pred = tf.cast(tf.argmax(input=logits, axis=1), tf.int32)
             correct_pred = tf.cast(tf.equal(pred, labels_reshaped), tf.int32)
             
             # predicting unknown is always considered wrong
-            unk_tensor = tf.fill(tf.shape(labels_reshaped), self.unk_symbol)
+            unk_tensor = tf.fill(tf.shape(input=labels_reshaped), self.unk_symbol)
             pred_unk = tf.cast(tf.equal(pred, unk_tensor), tf.int32)
             correct_unk = tf.multiply(pred_unk, correct_pred)
 
             # predicting padding is always considered wrong
-            pad_tensor = tf.fill(tf.shape(labels_reshaped), 0)
+            pad_tensor = tf.fill(tf.shape(input=labels_reshaped), 0)
             pred_pad = tf.cast(tf.equal(pred, pad_tensor), tf.int32)
             correct_pad = tf.multiply(pred_pad, correct_pred)
 
@@ -85,16 +85,16 @@ class ClientModel(Model):
 
             # Update the cost
             #self.cost = tf.reduce_sum(loss)
-            self.cost = tf.reduce_mean(loss)
+            self.cost = tf.reduce_mean(input_tensor=loss)
             self.final_state = state
 
-            tvars = tf.trainable_variables()
-            grads, _ = tf.clip_by_global_norm(tf.gradients(self.cost, tvars), self.max_grad_norm)
+            tvars = tf.compat.v1.trainable_variables()
+            grads, _ = tf.clip_by_global_norm(tf.gradients(ys=self.cost, xs=tvars), self.max_grad_norm)
             train_op = self.optimizer.apply_gradients(
                 zip(grads, tvars),
-                global_step=tf.train.get_or_create_global_step())
+                global_step=tf.compat.v1.train.get_or_create_global_step())
 
-            eval_metric_ops = tf.count_nonzero(correct_pred) - tf.count_nonzero(correct_unk) - tf.count_nonzero(correct_pad)
+            eval_metric_ops = tf.math.count_nonzero(correct_pred) - tf.math.count_nonzero(correct_unk) - tf.math.count_nonzero(correct_pad)
 
         return features, labels, train_op, eval_metric_ops, self.cost
 
@@ -102,14 +102,14 @@ class ClientModel(Model):
         def make_cell():
             cell = tf.contrib.rnn.LSTMBlockCell(self.n_hidden, forget_bias=0.0)
             if self.keep_prob < 1:
-                cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
+                cell = tf.compat.v1.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
             return cell
 
-        cell = tf.nn.rnn_cell.MultiRNNCell(
+        cell = tf.compat.v1.nn.rnn_cell.MultiRNNCell(
             [make_cell() for _ in range(self.num_layers)], state_is_tuple=True)
 
         self.initial_state = cell.zero_state(self.batch_size, tf.float32)
-        outputs, state = tf.nn.dynamic_rnn(
+        outputs, state = tf.compat.v1.nn.dynamic_rnn(
             cell, inputs, initial_state=self.initial_state, sequence_length=self.sequence_length_ph)
         output = tf.reshape(tf.concat(outputs, 1), [-1, self.n_hidden])
         return output, state

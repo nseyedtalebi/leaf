@@ -22,22 +22,22 @@ class ClientModel(Model):
         super(ClientModel, self).__init__(lr)
 
     def create_model(self):
-        features = tf.placeholder(tf.float32, [None, self.input_dim])
-        labels = tf.placeholder(tf.float32, [None, self.num_classes])
+        features = tf.compat.v1.placeholder(tf.float32, [None, self.input_dim])
+        labels = tf.compat.v1.placeholder(tf.float32, [None, self.num_classes])
         
-        W = tf.Variable(tf.random_normal(shape=[self.input_dim, self.num_classes]))
-        b = tf.Variable(tf.random_normal(shape=[self.num_classes]))
+        W = tf.Variable(tf.random.normal(shape=[self.input_dim, self.num_classes]))
+        b = tf.Variable(tf.random.normal(shape=[self.num_classes]))
 
         pred = tf.nn.softmax(tf.matmul(features, W) + b)
 
         # # Minimize error using cross entropy
-        loss = tf.reduce_mean(-tf.reduce_sum(labels*tf.log(pred), reduction_indices=1))
+        loss = tf.reduce_mean(input_tensor=-tf.reduce_sum(input_tensor=labels*tf.math.log(pred), axis=1))
         train_op = self.optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step())
+            global_step=tf.compat.v1.train.get_global_step())
         
-        correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(labels,1))
-        eval_metric_ops = tf.count_nonzero(correct_pred)
+        correct_pred = tf.equal(tf.argmax(input=pred,axis=1), tf.argmax(input=labels,axis=1))
+        eval_metric_ops = tf.math.count_nonzero(correct_pred)
         
         return features, labels, train_op, eval_metric_ops
 

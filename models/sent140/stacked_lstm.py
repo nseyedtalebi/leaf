@@ -3,8 +3,8 @@ import os
 import sys
 import tensorflow as tf
 
-from tensorflow.contrib import rnn
-
+from tensorflow.compat.v1.nn import rnn_cell as rnn
+from tensorflow.compat.v1.keras.layers import CuDNNLSTM
 from model import Model
 from utils.language_utils import line_to_indices, get_word_emb_arr, val_to_vec
 
@@ -25,26 +25,29 @@ class ClientModel(Model):
         super(ClientModel, self).__init__(seed, lr)
 
     def create_model(self):
-        features = tf.placeholder(tf.int32, [None, self.seq_len])
-        embedding = tf.get_variable(
-            'embedding', [self.vocab_size + 1, self.n_hidden], dtype=tf.float32)
-        x = tf.cast(tf.nn.embedding_lookup(embedding, features), tf.float32)
-        labels = tf.placeholder(tf.float32, [None, self.num_classes])
-        
-        stacked_lstm = rnn.MultiRNNCell(
-            [rnn.BasicLSTMCell(self.n_hidden) for _ in range(2)])
-        outputs, _ = tf.nn.dynamic_rnn(stacked_lstm, x, dtype=tf.float32)
-        fc1 = tf.layers.dense(inputs=outputs[:, -1, :], units=128)
-        pred = tf.layers.dense(inputs=fc1, units=self.num_classes)
-        
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=pred, labels=labels))
+        features = tf.compat.v1.placeholder(tf.int32, [None, self.seq_len])
+        embedding = tf.compat.v1.get_variable(
+            'embedding', [self.vocab_size + 1, self.n_hidden], dtype=tf.float32,
+            use_resource=False)
+        x = tf.cast(tf.nn.embedding_lookup(params=embedding, ids=features), tf.float32)
+        labels = tf.compat.v1.placeholder(tf.float32, [None, self.num_classes])
+
+        #stacked_lstm = [CuDNNLSTM(self.n_hidden) for _ in range(2)]
+        stacked_lstm = CuDNNLSTM(2)
+        #outputs, _ = tf.compat.v1.nn.dynamic_rnn(stacked_lstm, x, dtype=tf.float32)
+        outputs = stacked_lstm(x)
+        #fc1 = tf.compat.v1.layers.dense(inputs=outputs[:, -1, :], units=128)
+        fc1 = tf.compat.v1.layers.dense(inputs=outputs, units=128)
+        pred = tf.compat.v1.layers.dense(inputs=fc1, units=self.num_classes)
+
+        loss = tf.reduce_mean(input_tensor=tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=labels))
         train_op = self.optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step())
-        
-        correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(labels, 1))
-        eval_metric_ops = tf.count_nonzero(correct_pred)
-        
+            global_step=tf.compat.v1.train.get_global_step())
+
+        correct_pred = tf.equal(tf.argmax(input=pred, axis=1), tf.argmax(input=labels, axis=1))
+        eval_metric_ops = tf.math.count_nonzero(correct_pred)
+
         return features, labels, train_op, eval_metric_ops, loss
 
     def process_x(self, raw_x_batch, max_words=25):

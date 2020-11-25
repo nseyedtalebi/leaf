@@ -1,9 +1,11 @@
 import numpy as np
+import tensorflow as tf
 
 from baseline_constants import BYTES_WRITTEN_KEY, BYTES_READ_KEY, LOCAL_COMPUTATIONS_KEY
 
+
 class Server:
-    
+
     def __init__(self, client_model):
         self.client_model = client_model
         self.model = client_model.get_params()
@@ -12,7 +14,7 @@ class Server:
 
     def select_clients(self, my_round, possible_clients, num_clients=20):
         """Selects num_clients clients randomly from possible_clients.
-        
+
         Note that within function, num_clients is set to
             min(num_clients, len(possible_clients)).
 
@@ -30,7 +32,7 @@ class Server:
 
     def train_model(self, num_epochs=1, batch_size=10, minibatch=None, clients=None):
         """Trains self.model on given clients.
-        
+
         Trains model on self.selected_clients if clients=None;
         each client's data is trained with the given number of epochs
         and batches.
@@ -42,7 +44,7 @@ class Server:
             minibatch: fraction of client's data to apply minibatch sgd,
                 None to use FedAvg
         Return:
-            bytes_written: number of bytes written by each client to server 
+            bytes_written: number of bytes written by each client to server
                 dictionary with client ids as keys and integer values.
             client computations: number of FLOPs computed by each client
                 dictionary with client ids as keys and integer values.
@@ -97,7 +99,7 @@ class Server:
             client.model.set_params(self.model)
             c_metrics = client.test(set_to_use)
             metrics[client.id] = c_metrics
-        
+
         return metrics
 
     def get_clients_info(self, clients):
@@ -120,8 +122,11 @@ class Server:
         """Saves the server model on checkpoints/dataset/model.ckpt."""
         # Save server model
         self.client_model.set_params(self.model)
-        model_sess =  self.client_model.sess
-        return self.client_model.saver.save(model_sess, path)
+        model_sess = self.client_model.sess
+        if isinstance(self.client_model, tf.keras.Model):
+            return self.client_model.saver.save(model_sess, path, save_format='h5')
+        else:
+            return self.client_model.saver.save(model_sess, path)
 
     def close_model(self):
         self.client_model.close()

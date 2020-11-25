@@ -27,7 +27,7 @@ def main():
     # Set the random seed if provided (affects client sampling, and batching)
     random.seed(1 + args.seed)
     np.random.seed(12 + args.seed)
-    tf.set_random_seed(123 + args.seed)
+    tf.compat.v1.set_random_seed(123 + args.seed)
 
     model_path = '%s/%s.py' % (args.dataset, args.model)
     if not os.path.exists(model_path):
@@ -44,7 +44,7 @@ def main():
     clients_per_round = args.clients_per_round if args.clients_per_round != -1 else tup[2]
 
     # Suppress tf warnings
-    tf.logging.set_verbosity(tf.logging.WARN)
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.WARN)
 
     # Create 2 models
     model_params = MODEL_PARAMS[model_path]
@@ -54,7 +54,7 @@ def main():
         model_params = tuple(model_params_list)
 
     # Create client model, and share params with server model
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     client_model = ClientModel(args.seed, *model_params)
 
     # Create server

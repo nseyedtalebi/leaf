@@ -3,7 +3,8 @@
 OUTPUT_DIR=${1:-"./baseline"}
 
 # Each value is (k, seed) pair
-declare -a k_vals=( "100 1549774894" "30 1549775083" "10 1549775860" "3 1549780473" )
+declare -a k_vals=( "100 1549774894" )
+#"30 1549775083" "10 1549775860" "3 1549780473" )
 
 ###################### Functions ###################################
 
@@ -12,7 +13,7 @@ function get_k_data() {
 	split_seed="${2}"
 
 	pushd data/sent140/
-		rm -rf meta/ data/
+		#rm -rf meta/ data/
 		./preprocess.sh --sf 0.1 -k ${keep_clients} -s niid -t sample --spltseed ${split_seed}
 	popd
 }
