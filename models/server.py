@@ -1,11 +1,9 @@
 import numpy as np
-
 from tensorflow_privacy.privacy.analysis.compute_dp_sgd_privacy_lib import (
     compute_dp_sgd_privacy,
 )
-from tensorflow_privacy.privacy.optimizers.dp_optimizer import (
-    DPGradientDescentGaussianOptimizer,
-)
+
+
 from baseline_constants import BYTES_WRITTEN_KEY, BYTES_READ_KEY, LOCAL_COMPUTATIONS_KEY
 
 
@@ -68,16 +66,22 @@ class Server:
         for c in clients:
             c.model.set_params(self.model)
             comp, num_samples, update = c.train(num_epochs, batch_size, minibatch)
-
+            dp_delta = 1 / num_samples
+            dp_epsilon, _ = compute_dp_sgd_privacy(
+                num_samples,
+                batch_size,
+                c.model.noise_multiplier,
+                num_epochs,
+                dp_delta,
+            )
             sys_metrics[c.id][BYTES_READ_KEY] += c.model.size
             sys_metrics[c.id][BYTES_WRITTEN_KEY] += c.model.size
             sys_metrics[c.id][LOCAL_COMPUTATIONS_KEY] = comp
 
             self.updates.append((num_samples, update))
             # Add DP stuff
-            if isinstance(c.model.optimizer, DPGradientDescentGaussianOptimizer):
-                sys_metrics[c.id]["dp_delta"] = c.dp_delta
-                sys_metrics[c.id]["dp_epsilon"] = c.dp_epsilon
+            sys_metrics[c.id]["dp_delta"] = dp_delta
+            sys_metrics[c.id]["dp_epsilon"] = dp_epsilon
 
         return sys_metrics
 

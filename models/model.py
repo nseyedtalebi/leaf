@@ -6,6 +6,7 @@ import os
 import sys
 import tensorflow as tf
 
+
 from baseline_constants import ACCURACY_KEY
 
 from utils.model_utils import batch_data
@@ -13,7 +14,6 @@ from utils.tf_utils import graph_size
 
 
 class Model(ABC):
-
     def __init__(self, seed, lr, optimizer=None):
         self.lr = lr
         self.seed = seed
@@ -22,7 +22,13 @@ class Model(ABC):
         self.graph = tf.Graph()
         with self.graph.as_default():
             tf.set_random_seed(123 + self.seed)
-            self.features, self.labels, self.train_op, self.eval_metric_ops, self.loss = self.create_model()
+            (
+                self.features,
+                self.labels,
+                self.train_op,
+                self.eval_metric_ops,
+                self.loss,
+            ) = self.create_model()
             self.saver = tf.train.Saver()
         self.sess = tf.Session(graph=self.graph)
 
@@ -33,7 +39,9 @@ class Model(ABC):
 
             metadata = tf.RunMetadata()
             opts = tf.profiler.ProfileOptionBuilder.float_operation()
-            self.flops = tf.profiler.profile(self.graph, run_meta=metadata, cmd='scope', options=opts).total_float_ops
+            self.flops = tf.profiler.profile(
+                self.graph, run_meta=metadata, cmd="scope", options=opts
+            ).total_float_ops
 
         np.random.seed(self.seed)
 
@@ -55,6 +63,10 @@ class Model(ABC):
             self._optimizer = tf.train.GradientDescentOptimizer(learning_rate=self.lr)
 
         return self._optimizer
+
+    @optimizer.setter
+    def optimizer(self, value):
+        self._optimizer = value
 
     @abstractmethod
     def create_model(self):
@@ -88,22 +100,21 @@ class Model(ABC):
             self.run_epoch(data, batch_size)
 
         update = self.get_params()
-        comp = num_epochs * (len(data['y'])//batch_size) * batch_size * self.flops
+        comp = num_epochs * (len(data["y"]) // batch_size) * batch_size * self.flops
         return comp, update
 
     def run_epoch(self, data, batch_size):
 
         for batched_x, batched_y in batch_data(data, batch_size, seed=self.seed):
-            
+
             input_data = self.process_x(batched_x)
             target_data = self.process_y(batched_y)
-            
+
             with self.graph.as_default():
-                self.sess.run(self.train_op,
-                    feed_dict={
-                        self.features: input_data,
-                        self.labels: target_data
-                    })
+                self.sess.run(
+                    self.train_op,
+                    feed_dict={self.features: input_data, self.labels: target_data},
+                )
 
     def test(self, data):
         """
@@ -114,15 +125,16 @@ class Model(ABC):
         Return:
             dict of metrics that will be recorded by the simulation.
         """
-        x_vecs = self.process_x(data['x'])
-        labels = self.process_y(data['y'])
+        x_vecs = self.process_x(data["x"])
+        labels = self.process_y(data["y"])
         with self.graph.as_default():
             tot_acc, loss = self.sess.run(
                 [self.eval_metric_ops, self.loss],
-                feed_dict={self.features: x_vecs, self.labels: labels}
+                feed_dict={self.features: x_vecs, self.labels: labels},
             )
+        loss = np.mean(loss)
         acc = float(tot_acc) / x_vecs.shape[0]
-        return {ACCURACY_KEY: acc, 'loss': loss}
+        return {ACCURACY_KEY: acc, "loss": loss}
 
     def close(self):
         self.sess.close()
@@ -168,7 +180,7 @@ class ServerModel:
                 for v in all_vars:
                     v.load(var_vals[v.name], c.model.sess)
 
-    def save(self, path='checkpoints/model.ckpt'):
+    def save(self, path="checkpoints/model.ckpt"):
         return self.model.saver.save(self.model.sess, path)
 
     def close(self):

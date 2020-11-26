@@ -50,7 +50,7 @@ def main():
     )
 
     # Suppress tf warnings
-    tf.logging.set_verbosity(tf.logging.WARN)
+    tf.logging.set_verbosity(tf.logging.ERROR)
 
     # Create 2 models
     model_params = MODEL_PARAMS[model_path]
@@ -58,8 +58,10 @@ def main():
         model_params_list = list(model_params)
         model_params_list[0] = args.lr
         model_params = tuple(model_params_list)
+
     # Add params for DP
     model_params = model_params + (args.l2_norm_clip, args.noise_multiplier)
+
     # Create client model, and share params with server model
     tf.reset_default_graph()
     client_model = ClientModel(args.seed, *model_params)
@@ -153,7 +155,9 @@ def setup_clients(dataset, model=None, use_val_set=False):
     train_data_dir = os.path.join("..", "data", dataset, "data", "train")
     test_data_dir = os.path.join("..", "data", dataset, "data", eval_set)
 
-    users, groups, train_data, test_data = read_data(train_data_dir, test_data_dir)
+    users, groups, train_data, test_data = read_data(
+        train_data_dir, test_data_dir
+    )  # look at parallelizing
 
     clients = create_clients(users, groups, train_data, test_data, model)
 
